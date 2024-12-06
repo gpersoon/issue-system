@@ -1,0 +1,119 @@
+<logbox id="log"></logbox>
+<style>
+p {
+  margin: 2px;
+}
+<STYLE MEDIA="print">  width = "200px"; </STYLE>
+
+</style>
+<script src="https://unpkg.com/marked@latest/marked.min.js"></script> 
+
+
+<script>
+// Replace these with your own values
+const owner = 'gpersoon';
+const repo = 'issue-system';
+const accessToken = ''; // Create a personal access token in your GitHub account settings
+const apiUrl = `https://api.github.com/repos/${owner}/${repo}/issues`;
+       
+function log(logstr) {
+    document.getElementById("log").innerHTML +=logstr+"\n";
+}
+        
+
+
+async function fetchAllIssues() {
+  let issues = [];
+  let url = apiUrl;
+
+  while (url) {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Authorization': `token ${accessToken}`,
+        'Accept': 'application/vnd.github.v3+json',
+      },
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      issues = issues.concat(data);
+
+      const linkHeader = response.headers.get('Link');
+      if (linkHeader) {
+        const links = linkHeader.split(',');
+        const nextLink = links.find(link => link.includes('rel="next"'));
+        if (nextLink) {
+          url = nextLink.match(/<([^>]*)>/)[1];
+        } else {
+          url = null;
+        }
+      } else {
+        url = null;
+      }
+    } else {
+      throw new Error(`Failed to fetch issues: ${response.status} - ${await response.text()}`);
+    }
+  }
+
+  return issues;
+}
+
+async function displayIssues() {  
+    const issues = await fetchAllIssues();
+    const severities = ['Severity: High ','Severity: Medium','Severity: Low','Severity: Informational', 'Severity: Gas optimization']   
+    const sevletter = ['H','M','L','I', 'G']
+    j=0
+     log(marked.parse(`## Summary of issues`))
+    
+    for (const sev of severities) {                
+        log(marked.parse(`### ${sev}`))
+        index=0        
+        for (const item of issues) {                
+            if (!item.labels[0]) continue
+            if (item.labels[0].name != sev) continue            
+            index++            
+            log(marked.parse(`${sevletter[j]}-${index} : ${(item.title)}`))
+            //log(marked.parse(item.body))
+        }
+        j++
+    }
+    j=0
+    log(marked.parse(`## Details of issues`))
+    for (const sev of severities) {                
+        log(marked.parse(`### ${sev}`))
+        index=0        
+        for (const item of issues) {                
+            if (!item.labels[0]) continue
+            if (item.labels[0].name != sev) continue            
+            index++            
+            log(marked.parse(`### #${sevletter[j]}-${index} : ${(item.title)}`))
+            log(marked.parse(item.body))
+        }
+        j++
+    }
+}
+async function intro() {
+let filePath='report/intro.md'
+let url=`https://api.github.com/repos/${owner}/${repo}/contents/${filePath}`
+console.log(url);
+ const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Authorization': `token ${accessToken}`,
+        'Accept': 'application/vnd.github.v3+json',
+      },
+    });
+    let a = await response.json()
+    console.log(a.content)
+    
+     let b = atob(a.content); // Decode base64 content
+    console.log(b)
+    log(marked.parse(b));
+     
+await displayIssues();
+}
+intro();
+
+
+</script>
